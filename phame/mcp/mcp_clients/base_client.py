@@ -1,0 +1,21 @@
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+import asyncio
+
+
+class MCPToolClient:
+
+    def __init__(self, script_path: str):
+        self.script_path = script_path
+
+    async def call(self, tool_name: str, args: dict):
+        server_params = StdioServerParameters(
+            command="python",
+            args=[self.script_path],
+        )
+
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, args)
+                return result.content[0].text

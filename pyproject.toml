@@ -1,0 +1,32 @@
+[project]
+name = "phame"
+version = "0.0.1"
+requires-python = ">=3.11"
+
+
+# Your runtime dependencies
+dependencies = [
+    "cadquery",
+    "chromadb",
+    "chroma-haystack",
+    "datasets>=2.6.1",
+    "docling",
+    "docling-haystack",
+    "haystack-ai>=2.16.0",
+    "haystack-ai[qdrant]",
+    "langchain_community",
+    "langchain-core",
+    "langchain-openai",
+    "langgraph",
+    "portkey_ai",
+    "pydantic_ai",
+    "pypdf",
+    "qdrant-haystack",
+    "sentence-transformers>=4.1.0",
+    "tqdm",
+    "opentelemetry-api>=1.39.0",
+    "opentelemetry-sdk>=1.39.0"
+]
+
+[tool.setuptools]
+packages = ["phame"] 

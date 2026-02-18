@@ -1,0 +1,13 @@
+# Embedding settings (used for Chroma queries)
+embedding:
+    source: "portkey"
+    model: "@opal/sean/openai/clip-vit-large-patch14"
+    batch_size: 256
+    normalize: false
+
+# Chat model settings (used for generation)
+chat:
+  model: "@opal/Qwen/Qwen3-0.6B"
+  temperature: 0.3
+  base_url: "https://api.portkey.ai/v1"   # can be different from embedding
+  api_key: null     

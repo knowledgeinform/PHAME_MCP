@@ -1,0 +1,5 @@
+embedding:
+    source: "portkey"
+    model: "@opal/intfloat/e5-large-v2"
+    batch_size: 64
+    normalize: false

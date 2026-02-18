@@ -1,0 +1,31 @@
+# ------------------------------------------------------------------
+# Portkey environment configuration – PowerShell script
+# ------------------------------------------------------------------
+
+# 1️⃣  Set the Portkey endpoint
+$env:PORTKEY_BASE_URL = "https://aigateway.jhuapl.edu/v1"
+
+# 2️⃣  Set your Portkey API key – replace [YOUR KEY] with the real key
+$env:PORTKEY_API_KEY = "[YOUR KEY]"
+
+# 3️⃣  Resolve the location of the certifi CA bundle and expose it to Python
+$env:SSL_CERT_FILE = python -c "import certifi, sys; sys.stdout.write(certifi.where())"
+
+# ------------------------------------------------------------------
+# OPTIONAL: Persist the variables for *future* PowerShell / CMD sessions.
+#           setx writes the values to the Windows Registry (system‑wide here).
+#           Comment them out if you only want the variables for the current session.
+# ------------------------------------------------------------------
+# setx PORTKEY_BASE_URL $env:PORTKEY_BASE_URL /M
+# setx PORTKEY_API_KEY  $env:PORTKEY_API_KEY  /M
+# setx SSL_CERT_FILE    $env:SSL_CERT_FILE    /M
+
+# ------------------------------------------------------------------
+# Show the values so you can verify they were set correctly
+# ------------------------------------------------------------------
+Write-Host ""
+Write-Host "PORTKEY environment variables have been set for this session:"
+Write-Host "  PORTKEY_BASE_URL : $env:PORTKEY_BASE_URL"
+Write-Host "  PORTKEY_API_KEY  : $env:PORTKEY_API_KEY"
+Write-Host "  SSL_CERT_FILE    : $env:SSL_CERT_FILE"
+Write-Host ""

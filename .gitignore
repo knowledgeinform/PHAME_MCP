@@ -1,0 +1,11 @@
+chroma_db/*
+*.egg-info/*
+.env/*
+.venv/*
+.vscode/*
+outputs/*
+*.pyc
+requirements.txt
+set_portkey_env_var.sh
+set_portkey_env_var.ps1
+scratch/*
