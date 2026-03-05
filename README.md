@@ -24,6 +24,7 @@ cd PHAME-PG
 sudo apt install python3.12-venv
 /usr/bin/python3.12 -m venv .venv
 source ./.venv/bin/activate
+python -m pip install --timeout 300 --upgrade pip setuptools wheel
 pip install -e .
 ```
 
@@ -49,9 +50,15 @@ pip install -e . --timeout 300
 Follow directions to Create a Portkey API Key at: 
 https://jhuapl.enterprise.slack.com/docs/T01BQG1SGSV/F098P9R3AL9
 
+or
+
+Go here and access portkeys for your respective accounts: https://aiportal.jhuapl.edu/login
+
 ```
 export PORTKEY_BASE_URL="https://aigateway.jhuapl.edu/v1"
-export PORTKEY_API_KEY=[YOUR KEY]
+export PORTKEY_OPAL_API_KEY=[OPAL_API_KEY]]
+export PORTKEY_OPENAI_ENTERPRISE_PILOT_API_KEY=[OPENAI_ENTERPRISE_PILOT_API_KEY]
+export PORTKEY_OPENAI_PHAME_PG_API_KEY=[OPENAI_PHAME_PG_API_KEY]
 ```
 
 If useful to the developer, there is a shell script helper template at set_portkey_env_var.sh.template
@@ -131,3 +138,48 @@ time python phame/llm/fix_cad.py -d "The design is a bicycle." -o "bicycle_fixed
 
 Visualize Output:
 Go to: https://3dviewer.net
+
+
+## Starting MCP servers
+
+
+
+### Setting Up Share tmux group
+
+#### 1) Create a shared group and add users
+```bash
+sudo groupadd phame
+sudo usermod -aG phame <youruser>
+sudo usermod -aG phame <otheruser>
+```
+#### 2) Create a shared directory for the socket
+
+```bash
+sudo mkdir -p /var/run/tmux-share
+sudo chgrp phame /var/run/tmux-share
+sudo chmod 2770 /var/run/tmux-share
+```
+2770 sets the setgid bit so new files keep the group.
+
+#### 3) Start tmux using that socket path
+
+Something like
+
+```bash
+tmux -S /var/run/tmux-share/gaga.sock new -s librarian-mcp-server
+```
+
+### Librarian MCP servers
+
+On `phame-justdance` or another central team server, execute
+
+```bash
+tmux -S /var/run/tmux-share/gaga.sock new -s librarian-mcp-server
+cd [phame repo]
+python [phame_repo]/phame/mcp/run_server.py --host 0.0.0.0 --port 8001
+```
+
+Or to reattach:
+```bash
+tmux -S /var/run/tmux-share/gaga.sock attach -t librarian-mcp-server
+```

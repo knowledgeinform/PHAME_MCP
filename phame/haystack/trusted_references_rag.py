@@ -22,6 +22,8 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 
 from haystack.dataclasses import ChatMessage, GeneratedAnswer
 
+from phame.llm.utils import _extract_workpsace_str
+
 
 def get_embedding_model(embedding_model: str = None):
     if embedding_model is None:
@@ -40,13 +42,13 @@ def get_embedding_model(embedding_model: str = None):
 
         doc = OpenAIDocumentEmbedder(
             model=embedding_model,
-            api_key=Secret.from_env_var("PORTKEY_API_KEY"),
+            api_key=Secret.from_env_var(_extract_workpsace_str(embedding_model)),
             api_base_url=os.getenv("PORTKEY_BASE_URL"),
             batch_size=128
         )
         text = OpenAITextEmbedder(
             model=embedding_model,
-            api_key=Secret.from_env_var("PORTKEY_API_KEY"),
+            api_key=Secret.from_env_var(_extract_workpsace_str(embedding_model)),
             api_base_url=os.getenv("PORTKEY_BASE_URL")
         )
         return doc, text
@@ -148,7 +150,7 @@ Answer:
     llm = OpenAIChatGenerator(
         model=llm_model,
         api_base_url=os.environ["PORTKEY_BASE_URL"],  # Portkey OpenAI-compatible URL
-        api_key=Secret.from_env_var("PORTKEY_API_KEY")
+        api_key=Secret.from_env_var(_extract_workpsace_str(model_name=llm_model))
         )
     answer_builder = AnswerBuilder()
     # first_answer = AnswerJoiner(top_k=1)
@@ -176,7 +178,7 @@ Answer:
 if __name__ == "__main__":
 
     parser = ArgumentParser(description="trusted references rag. For embedding and querying trusted reference db.")
-    parser.add_argument("-m", "--model", type=str, default="sentence-transformers/all-MiniLM-L6-v2",
+    parser.add_argument("-m", "--embedding_model", type=str, default="sentence-transformers/all-MiniLM-L6-v2",
                         help="Embedding model.")
 
     parser.add_argument("-d", "--dir", type=str, default=".",
@@ -188,16 +190,16 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--persist", type=str, default="./chroma_db/trusted_refs",
                         help="Directory to save chroma db")
 
-    parser.add_argument("-l", "--llm", type=str, default="@openai-enterprise-pilot/o4-mini",
+    parser.add_argument("-l", "--llm_model", type=str, default="@openai-enterprise-pilot/o4-mini",
                         help="LLM model for question answering.")
 
     args = parser.parse_args()
 
-    EMBED_MODEL = args.model
+    EMBED_MODEL = args.embedding_model
     PDF_DIR = args.dir
     REBUILD_DB = args.rebuild
     CHROMA_PERSIST = args.persist
-    LLM = args.llm
+    LLM = args.llm_model
 
     print("\n===== RAG System Configuration =====")
     print(f"Embedding model : {EMBED_MODEL}")

@@ -1,3 +1,7 @@
 #!/bin/sh
+#!/bin/sh
 export PORTKEY_BASE_URL="https://aigateway.jhuapl.edu/v1"
-export PORTKEY_API_KEY=[YOUR KEY]]
+export PORTKEY_OPAL_API_KEY=[OPAL_API_KEY]]
+export PORTKEY_OPENAI_ENTERPRISE_PILOT_API_KEY=[OPENAI_ENTERPRISE_PILOT_API_KEY]
+export PORTKEY_OPENAI_PHAME_PG_API_KEY=[OPENAI_PHAME_PG_API_KEY]
+source ./.venv/bin/activate

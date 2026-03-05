@@ -4,22 +4,18 @@ from pydantic_ai import Agent, RunContext
 from haystack import Pipeline
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
-import os
+from phame.llm.utils import _build_openai_model
+
 # from phame.agents.supervisor import default_agent_thinking_model_str
 
-default_agent_thinking_model_str = "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
+default_agent_thinking_model_str = "@openai-enterprise-pilot/gpt-4"
+# default_agent_thinking_model_str = "@opal/Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
 
 @dataclass
 class LibrarianDeps:
     textbook_rag: Pipeline  # you can add more pipelines later
 
-agent_chat_model = OpenAIChatModel(
-    default_agent_thinking_model_str,   # model string passed through to the endpoint
-    provider=OpenAIProvider(
-        base_url=os.environ["PORTKEY_BASE_URL"],   # e.g. "https://api.portkey.ai/v1"
-        api_key=os.environ["PORTKEY_API_KEY"],
-    ),
-)
+agent_chat_model = _build_openai_model(default_agent_thinking_model_str)
 
 librarian_agent = Agent(
     agent_chat_model,
@@ -36,9 +32,15 @@ librarian_agent = Agent(
 def kb_basic(ctx: RunContext[LibrarianDeps], question: str) -> str:
     """Answer using the basic Haystack RAG pipeline."""
     p = ctx.deps.textbook_rag
-    out = p.run({
+    try:
+        out = p.run({
         "text_embedder": {"text": question},
         "prompt_builder": {"question": question},  # matches your template variable
         "answer_builder": {"query": question},     # AnswerBuilder expects query
-    })
+        })
+    except:
+        out = {
+            'first_answer':
+                {'answer':"I don't know."}
+        }
     return out["first_answer"]["answer"]

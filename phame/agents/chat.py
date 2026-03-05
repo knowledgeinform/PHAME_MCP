@@ -10,6 +10,9 @@ from phame.llm.utils import pretty_print_ctx_messages
 
 
 from pathlib import Path
+from datetime import datetime
+import uuid
+import json
 
 import sys
 if sys.platform.startswith("win"):
@@ -52,17 +55,46 @@ from pydantic_ai import (
 
 # textbook_rag = build_rag_pipeline()
 CHROMA_PERSIST = "./chroma_db/trusted_ref_subset"
-EMBED_MODEL = "intfloat/e5-large-v2"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 SOLIDWORKS_MACRO_EXAMPLES = [Path("./solidworks/human_gen_examples")]
 # textbook_rag = build_rag_pipeline()
 document_store = make_chroma_document_store(persist_path=CHROMA_PERSIST)
 textbook_rag = build_rag_pipeline(document_store, EMBED_MODEL)
 
-   
+def _generate_project_folder(base: str = "./Projects") -> Path:
+    # get time as base then create base + unique id
+    time_ = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pid = f"{time_}_{uuid.uuid4().hex[:8]}"
+
+    # make folders
+    p = Path(base) / pid
+    p.mkdir(parents=True, exist_ok=False)
+
+    # other folders
+    (p / "inputs").mkdir() # user inputs + retrieval
+    (p / "parts").mkdir() # parts folder
+    (p / "logs").mkdir() # system logs
+
+    # saving metadata
+    with open((p/"metadata.json"), "w", encoding="utf-8") as fp:
+        json.dump(
+            {
+                "created_at": time_,
+                "uuid": pid,
+                "cad_mode": CAD_GENERATION_AGENT_TYPE,
+                "chroma_persist": CHROMA_PERSIST,
+                "embedding_model": EMBED_MODEL,
+            },
+            fp,
+            indent=2,
+        )
+
+    return p
 
 deps = SupervisorDeps(
     librarian_deps=LibrarianDeps(textbook_rag=textbook_rag),
-    cad_generation_agent_deps=build_cad_deps(mode=CAD_GENERATION_AGENT_TYPE, example_dirs=SOLIDWORKS_MACRO_EXAMPLES)
+    cad_generation_agent_deps=build_cad_deps(mode=CAD_GENERATION_AGENT_TYPE, example_dirs=SOLIDWORKS_MACRO_EXAMPLES),
+    project_folder=_generate_project_folder()
     )
 supervisor_history: list[ModelMessage] = []
 

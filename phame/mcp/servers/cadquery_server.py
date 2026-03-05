@@ -8,14 +8,9 @@ class CadQueryService:
     """
 
     def __init__(self):
-        api_key = os.environ["PORTKEY_API_KEY"]
-        base_url = os.environ["PORTKEY_BASE_URL"]
 
         self.cadquery_agent = build_cadquery_macro_agent(
-            model_name="Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
-            api_key=api_key,
-            base_url=base_url,
-        )
+            model_name="@opal/Qwen/Qwen3-30B-A3B-Thinking-2507-FP8")
 
     def generate(self, design_prompt: str) -> dict:
         result = self.cadquery_agent.run_sync(design_prompt)

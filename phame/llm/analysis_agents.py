@@ -6,8 +6,8 @@ from phame.llm.utils import _build_openai_model
 from phame.llm.basemodels import AnalysisCode, AnalysisPlan, AnaylsisPlanCritic, AnalysisCodeCritic
 
 
-def build_analysis_plan_agent(model_name: str, api_key: str, base_url: str) -> Agent[AnalysisPlan]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_analysis_plan_agent(model_name: str) -> Agent[AnalysisPlan]:
+    model = _build_openai_model(model_name=model_name)
 
     agent = Agent(
         model,
@@ -26,8 +26,8 @@ def build_analysis_plan_agent(model_name: str, api_key: str, base_url: str) -> A
     )
     return agent
 
-def build_analysis_plan_critic_agent(model_name: str, api_key: str, base_url: str) -> Agent[AnaylsisPlanCritic]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_analysis_plan_critic_agent(model_name: str) -> Agent[AnaylsisPlanCritic]:
+    model = _build_openai_model(model_name=model_name)
 
     agent = Agent(
         model,
@@ -49,8 +49,8 @@ def build_analysis_plan_critic_agent(model_name: str, api_key: str, base_url: st
     )
     return agent
 
-def build_analysis_code_agent(model_name: str, api_key: str, base_url: str) -> Agent[AnalysisCode]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_analysis_code_agent(model_name: str) -> Agent[AnalysisCode]:
+    model = _build_openai_model(model_name=model_name)
 
     agent = Agent(
         model,
@@ -69,8 +69,8 @@ def build_analysis_code_agent(model_name: str, api_key: str, base_url: str) -> A
     return agent
 
 
-def build_analysis_code_critic_agent(model_name: str, api_key: str, base_url: str) -> Agent[AnalysisCodeCritic]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_analysis_code_critic_agent(model_name: str) -> Agent[AnalysisCodeCritic]:
+    model = _build_openai_model(model_name=model_name)
 
     agent = Agent(
         model,

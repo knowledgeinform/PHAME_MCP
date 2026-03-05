@@ -11,11 +11,15 @@ from phame.mcp.servers.cadquery_server import CadQueryService
 # Configuration
 # --------------------------------------------------
 
-CHROMA_PATH = "./chroma_db/trusted_ref_subset"
+# CHROMA_PATH = "/db/chroma_db/trusted_refs_subset" #change to "trusted_refs" when finished 
 
-EMBED_MODEL = "intfloat/e5-large-v2"
+# # EMBED_MODEL = "@opal/Qwen/Qwen3-Embedding-8B"
+# EMBED_MODEL = "intfloat/e5-large-v2"
+CHROMA_PATH = "/db/chroma_db/trusted_refs_sentence-transformers-all-MiniLM-L6-v2"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-LLM_MODEL = "openai/gpt-oss-120b"
+
+LLM_MODEL = "@opal/openai/gpt-oss-120b"
 # --------------------------------------------------
 # MCP Server Instance
 # --------------------------------------------------
@@ -40,8 +44,8 @@ cadquery_service = CadQueryService()
 # --------------------------------------------------
 
 @mcp_server.tool("librarian")
-def librarian_tool(question: str, top_k: int = 5):
-    return librarian_service.query(question, top_k)
+def librarian_tool(rag_query: str, top_k: int = 5):
+    return librarian_service.query(rag_query, top_k)
 
 
 @mcp_server.tool("cadquery")
@@ -62,9 +66,9 @@ class MCPRequest(BaseModel):
 # --------------------------------------------------
 
 @app.post("/mcp")
-def mcp_endpoint(request: MCPRequest):
+async def mcp_endpoint(request: MCPRequest):
     try:
-        result = mcp_server.execute(
+        result = await mcp_server.call_tool(
             request.tool,
             request.payload
         )
@@ -81,9 +85,10 @@ def mcp_endpoint(request: MCPRequest):
 
 
 @app.get("/tools")
-def list_tools():
+async def list_tools():
+    tools = await mcp_server.list_tools()
     return {
-        "tools": mcp_server.list_tools()
+        "tools": tools
     }
 
 

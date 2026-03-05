@@ -1,20 +1,23 @@
 # supervisor.py
 from dataclasses import dataclass, field
 
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, AgentRunResult, RunContext
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from phame.agents.librarian import librarian_agent, LibrarianDeps
-from phame.agents.design_agents import build_design_plan_agent, build_design_critic_agent, build_solidworks_macro_agent, build_cadquery_macro_agent
+from phame.agents.design_agents import build_design_plan_agent, build_design_critic_agent, build_solidworks_macro_agent, build_cadquery_macro_agent, build_cadquery_fixing_agent
 from phame.llm.utils import _build_openai_model
 from phame.agents.utils import CadGenAgentDeps, SolidworksExampleDeps, CadQueryGenDeps
 
-from typing import Literal
+from typing import Literal, Optional
+from pathlib import Path
 
 import os
 
+import subprocess
+import sys
 
 """
 The @dataclass decorator rewrites/augments the class by auto-generating a 
@@ -109,25 +112,20 @@ VALID_CAD_GENERATION_AGENT_TYPES = Literal[
     "SOLIDWORKS"
 ]
 
-# default_agent_thinking_model_str = "@openai-enterprise-pilot/o3"
-default_agent_thinking_model_str = "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
+default_agent_thinking_model_str = "@openai-enterprise-pilot/o3"
+# default_agent_thinking_model_str = "@opal/Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
 
 CAD_GENERATION_AGENT_TYPE = "CADQUERY"
 match CAD_GENERATION_AGENT_TYPE:
     case "CADQUERY":
         print("CAD Query Agent selected for CAD Generation")
         cad_generation_agent = build_cadquery_macro_agent(
-            model_name=default_agent_thinking_model_str,
-            api_key=os.environ["PORTKEY_API_KEY"], 
-            base_url=os.environ["PORTKEY_BASE_URL"]
+            model_name=default_agent_thinking_model_str
         )
     case "SOLIDWORKS":
         print("Solidworks Agent selected for CAD Generation")
         cad_generation_agent = build_solidworks_macro_agent(
-            model_name=default_agent_thinking_model_str,
-            api_key=os.environ["PORTKEY_API_KEY"], 
-            base_url=os.environ["PORTKEY_BASE_URL"]
-        )
+            model_name=default_agent_thinking_model_str)
     case _:
          # No case matched — raise an error
         raise ValueError(f"No matching case for value: {CAD_GENERATION_AGENT_TYPE}")
@@ -152,26 +150,19 @@ class SupervisorDeps:
     plan_designer_history: list[ModelMessage] = field(default_factory=list)
     plan_critic_history: list[ModelMessage] = field(default_factory=list)    
     cad_generation_agent_history: list[ModelMessage] = field(default_factory=list)
-
-# agent_chat_model = OpenAIChatModel(
-#     "openai/gpt-oss-120b",   # model string passed through to the endpoint
-#     provider=OpenAIProvider(
-#         base_url=os.environ["PORTKEY_BASE_URL"],   # e.g. "https://api.portkey.ai/v1"
-#         api_key=os.environ["PORTKEY_API_KEY"],
-#     ),
-# )
-
-
+    project_folder: Path = "./"
+    part_iteration: int = 0
+    cur_part_file: Path = None
 
 supervisor_agent_chat_model = _build_openai_model(
-    model_name=default_agent_thinking_model_str, 
-    api_key=os.environ["PORTKEY_API_KEY"], 
-    base_url=os.environ["PORTKEY_BASE_URL"]
+    model_name=default_agent_thinking_model_str
     )
 
 """
 Sample prompt: 
 Can you design me a bracket for bookshelf which I could mount on a wall. I'm looking for a material that will work in a house setting for a shelf that will hold  least 200 lbs and be about 6 ft long.  Not sure how many brackets I should use 
+
+Make me a picnic table for a toddler.  It will be 2ft tall.  and it will have a rectangular surface that is 18 in by 40 in.  its legs will be on the narrow ends of each side of the table.  The legs will cross on each of the narrow sides.  For each legs use a 2 by 6 beam that is cut at an angle.  The table surface can be made of strong plywood.  Go!
 """
 supervisor_agent = Agent(
     supervisor_agent_chat_model,
@@ -186,10 +177,11 @@ supervisor_agent = Agent(
         "1) You MUST consult the librarian about relevant design considerations and best practices.\n"
         "2) Delegate design plan request to the Plan Designer using `build_design_tool`.\n"
         "3) All design plans need to be evaluated by the Design Critic using `critique_design_tool`.\n"
-        "4) Create a CAD python file for each component in a design using `create_cad_design_pyfile` for each component.\n"
-        "   If the `create_cad_design_pyfile` does not produce a python file (e.g. it makes a VB/VBA file),\n"
-        "   then send the file back to `create_cad_design_pyfile` requested a python implementation. \n"
-        "5) Print the design plan and the python file for the user as the final output\n"        
+        "4) Create a single CAD python file for the design using `generate_validate_and_repair` for each component.\n"
+        "5) Ask user for design critiques using the `generate_with_user_input` function.\n"
+        # "   If the `create_cad_design_pyfile` does not produce a python file (e.g. it makes a VB/VBA file),\n"
+        # "   then send the file back to `create_cad_design_pyfile` requested a python implementation. \n"
+        "6) Print the design plan and the python file for the user as the final output\n"        
         "\n\n"
         
         "For writing, clarification, etc., you may answer directly\n"
@@ -252,9 +244,7 @@ Build the pan designer agent:
 
 """
 plan_designer_agent = build_design_plan_agent(
-    model_name=default_agent_thinking_model_str, 
-    api_key=os.environ["PORTKEY_API_KEY"], 
-    base_url=os.environ["PORTKEY_BASE_URL"]
+    model_name=default_agent_thinking_model_str
 )
 
 @supervisor_agent.tool
@@ -291,9 +281,7 @@ Critique design plan:
 
 """
 design_critic_agent = build_design_critic_agent(
-    model_name=default_agent_thinking_model_str,
-    api_key=os.environ["PORTKEY_API_KEY"],
-    base_url=os.environ["PORTKEY_BASE_URL"]
+    model_name=default_agent_thinking_model_str
 )
 
 @supervisor_agent.tool
@@ -340,6 +328,33 @@ Config file could contain
 
 """
 
+def write_code_to_disk(ctx: RunContext[SupervisorDeps], result: AgentRunResult, iter: bool=False):
+    """
+    this function is for writting out code written by the AI
+    """
+    if iter:
+        ctx.deps.part_iteration += 1
+    part_name = result.output.title.replace(" ","_")
+    rationale = result.output.rationale
+    code = result.output.cad_code
+    part_file = Path(ctx.deps.project_folder / "parts" / f"{part_name}_{ctx.deps.part_iteration}.py")
+    code = code.replace('./part_replace_me.step', str(part_file)[:-4]+".step")
+
+    with open(part_file, "w", encoding="utf-8") as fp:
+        title = "## " + result.output.title
+        fp.write(title + '\n')
+
+        fp.write("## Based on \n")
+
+        rationale = "## " + rationale.replace('\n', '\n## ')
+        fp.write(rationale + '\n')
+
+        fp.write(code)
+
+    ctx.deps.cur_part_file = part_file
+
+    return
+
 
 @supervisor_agent.tool
 def create_cad_design_pyfile(ctx: RunContext[SupervisorDeps], question: str) -> str:
@@ -349,12 +364,15 @@ def create_cad_design_pyfile(ctx: RunContext[SupervisorDeps], question: str) -> 
     print("CAD Generation Agent implementing design", flush=True)
     print("*******************************************", flush=True)
     print("", flush=True)
-    
+
     result = cad_generation_agent.run_sync(
         question,
         deps=ctx.deps.cad_generation_agent_deps, # None right now
         message_history=ctx.deps.cad_generation_agent_history,
     )
+
+    ctx.deps.part_iteration = 0
+    write_code_to_disk(ctx, result, False)
 
     # Keep a separate conversation state for the solidworks_macro_agent (optional but useful)
     ctx.deps.cad_generation_agent_history[:] = result.all_messages()  # :contentReference[oaicite:1]{index=1}
@@ -364,6 +382,147 @@ def create_cad_design_pyfile(ctx: RunContext[SupervisorDeps], question: str) -> 
     print("CAD Generation Agent implementing design", flush=True)
     print("*******************************************", flush=True)
     print("", flush=True)
+
+    # PydanticAI uses `result.output` in the docs; fallback for older code:
+    return getattr(result, "output", None) or getattr(result, "data", "")
+
+
+
+@supervisor_agent.tool
+def run_cad_file(ctx: RunContext[SupervisorDeps], timeout_s: int = 120) -> str:
+    """
+    Execute the most recently generated CAD python file in an isolated subprocess.
+    Returns success output or a formatted error report to feed back into the LLM.
+    """
+    part_file = ctx.deps.cur_part_file
+    if not part_file:
+        return "ERROR: No current part file is set. Generate a part first with create_cad_design_pyfile."
+
+    if not Path(part_file).exists():
+        return f"ERROR: File does not exist: {part_file}"
+
+    # Run as a module file with same python interpreter
+    cmd = [sys.executable, str(part_file)]
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd="./",  # keep relative paths stable
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            env=os.environ.copy(),
+        )
+    except subprocess.TimeoutExpired as e:
+        # Return something the LLM can act on (hangs often mean missing "show()" or big render)
+        return (
+            "RUNTIME_ERROR: Execution timed out.\n"
+            f"file: {part_file}\n"
+            f"timeout_s: {timeout_s}\n"
+            "stdout (partial):\n"
+            f"{(e.stdout or '')[:4000]}\n"
+            "stderr (partial):\n"
+            f"{(e.stderr or '')[:4000]}"
+        )
+    except Exception as e:
+        return f"RUNTIME_ERROR: Failed to execute subprocess: {type(e).__name__}: {e}"
+
+    # Persist logs
+    logs_dir = ctx.deps.project_folder / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    (logs_dir / f"{Path(part_file).stem}.stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
+    (logs_dir / f"{Path(part_file).stem}.stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
+
+    if proc.returncode == 0:
+        return (
+            "OK: CAD file executed successfully.\n"
+            f"file: {part_file}\n"
+            f"stdout:\n{(proc.stdout or '')[:4000]}\n"
+        )
+
+    # Non-zero exit: return actionable error details
+    return (
+        "RUNTIME_ERROR: CAD file crashed.\n"
+        f"file: {part_file}\n"
+        f"returncode: {proc.returncode}\n"
+        "stderr:\n"
+        f"{(proc.stderr or '')[:8000]}\n"
+        "stdout:\n"
+        f"{(proc.stdout or '')[:2000]}\n"
+        "INSTRUCTIONS: Fix the code to resolve the runtime error. "
+        "Do not change the design intent unless necessary. "
+        "Return corrected Python CAD code."
+    )
+
+
+def generate_validate_and_repair(ctx: RunContext[SupervisorDeps], prompt0: str, cad_func, max_attempts: int = 3) -> str:
+    """
+    Deterministic loop: generate -> run -> if error, feed error back -> regenerate.
+    """
+    # print(max_attempts)
+    last_report = ""
+    for attempt in range(1, max_attempts + 1):
+        prompt = prompt0
+        if last_report:
+            prompt += "\n\nThe previous generated code failed with this runtime error:\n" + last_report + gen.cad_code
+
+        gen = cad_func(ctx, prompt)  # calls agent + writes file
+        report = run_cad_file(ctx)
+
+        print(report)
+
+        if report.startswith("OK:"):
+            return f"SUCCESS after {attempt} attempt(s).\n{report}"
+
+        last_report = report
+
+    return f"FAILED after {max_attempts} attempts.\nLast error:\n{last_report}"
+
+
+code_fixing_agent = build_cadquery_fixing_agent(
+    model_name=default_agent_thinking_model_str
+)
+
+@supervisor_agent.tool
+def generate_validate_and_repair_cad_generation(ctx: RunContext[SupervisorDeps], prompt0: str, max_attempts: int = 3) -> str:
+    return generate_validate_and_repair(ctx, prompt0, create_cad_design_pyfile, max_attempts)
+
+@supervisor_agent.tool
+def generate_with_user_input(ctx: RunContext[SupervisorDeps], spec: str):
+    """
+     this function allows a user to provide critique of the provided design.
+     This is sent back to an agent who is tasked with fixing said design.
+    """
+    while True:
+        issues = input("\nWhat issues do you see with the design? (type 'none' to quit)\n> ").strip()
+
+        if issues.lower() == "none":
+            print("Done!\n")
+            break
+
+        current_file = ctx.deps.cur_part_file
+        with open(current_file, "r", encoding="utf-8") as fp:
+            code = fp.read()
+
+        prompt = (f"The original design request: {spec}\n"
+                  f"These are the list of issues to resolve:\n{issues}\n"
+                  f"Here is the original code:\n```\n{code}\n```\n"
+                  "Correct these issues and provide a new code.")
+
+        ctx.deps.part_iteration += 1
+        generate_validate_and_repair(ctx, prompt, fix_cad_design_pyfile, 3)
+
+
+
+def fix_cad_design_pyfile(ctx: RunContext[SupervisorDeps], prompt: str) -> str:
+    """Create a design using the solidworks_design_plan agent and return result"""
+
+    result = code_fixing_agent.run_sync(prompt,
+                                   deps=ctx.deps.cad_generation_agent_deps,
+                                   message_history=ctx.deps.cad_generation_agent_history)
+    # breakpoint()
+    write_code_to_disk(ctx, result, False)
+    ctx.deps.cad_generation_agent_history[:] = result.all_messages()
 
     # PydanticAI uses `result.output` in the docs; fallback for older code:
     return getattr(result, "output", None) or getattr(result, "data", "")

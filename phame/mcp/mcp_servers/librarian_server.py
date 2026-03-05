@@ -11,8 +11,11 @@ import os
 # RAG Setup 
 # -----------------------------------------
 
-CHROMA_PERSIST = "./chroma_db/trusted_ref_subset"
-EMBED_MODEL = "intfloat/e5-large-v2"
+# CHROMA_PERSIST = "./chroma_db/trusted_ref_subset"
+# EMBED_MODEL = "intfloat/e5-large-v2"
+CHROMA_PERSIST = "/db/chroma_db/trusted_refs_sentence-transformers-all-MiniLM-L6-v2"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
 
 document_store = make_chroma_document_store(persist_path=CHROMA_PERSIST)
 textbook_rag = build_rag_pipeline(document_store, EMBED_MODEL)

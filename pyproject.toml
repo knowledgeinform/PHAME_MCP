@@ -12,20 +12,25 @@ dependencies = [
     "datasets>=2.6.1",
     "docling",
     "docling-haystack",
+    "fastapi",
     "haystack-ai>=2.16.0",
     "haystack-ai[qdrant]",
     "langchain_community",
     "langchain-core",
     "langchain-openai",
     "langgraph",
+    "mcp",
     "portkey_ai",
     "pydantic_ai",
     "pypdf",
     "qdrant-haystack",
+    "requests",
     "sentence-transformers>=4.1.0",
     "tqdm",
     "opentelemetry-api>=1.39.0",
-    "opentelemetry-sdk>=1.39.0"
+    "opentelemetry-sdk>=1.39.0",
+    "uvicorn"
+    
 ]
 
 [tool.setuptools]

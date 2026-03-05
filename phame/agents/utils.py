@@ -1,9 +1,27 @@
 from __future__ import annotations
+import yaml
 
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Union, Optional
 from abc import ABC, abstractmethod
+
+from phame.haystack.cad_query_rag import build_query_pipeline
+from phame.haystack.trusted_references_rag import make_chroma_document_store
+
+# getting cadquery models
+CHROMA_PERSIST = "./chroma_db/cadquery_example_parts/db/"
+document_store = make_chroma_document_store(CHROMA_PERSIST)
+with open(CHROMA_PERSIST + "metadata.yaml") as fp:
+    metadata = yaml.safe_load(fp)
+
+if "embedding_model" in metadata:
+    EMBED_MODEL = metadata["embedding_model"]
+else:
+    assert 0, f"no metadata file in cadquery db: {CHROMA_PERSIST}"
+
+cq_rag_pipeline = build_query_pipeline(document_store, EMBED_MODEL)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,6 +29,12 @@ class ExampleFile:
     """A single example file loaded from disk."""
     path: Path
     content: str
+
+@dataclass(frozen=True, slots=True)
+class ExampleCQFile:
+    """A single example file loaded from disk."""
+    description: str
+    code: str
 
 ## Use this if there is any need for abstraction between Cad Generation classes
 @dataclass 
@@ -23,13 +47,22 @@ class CadGenerationAgentDeps(ABC):
     
 @dataclass(slots=True)
 class CadQueryGenDeps(CadGenerationAgentDeps):
-        
-    def load_examples(self) -> list[ExampleFile]:
-        single_example = ExampleFile(
-        path="/foo/bar/baz",
-        content="CadQueryGenDeps still needs a  client implementation for the MCP server"
-    )
-        return [single_example]
+
+    def load_examples(self, design: str, top_k: int=3) -> list[ExampleCQFile]:
+
+        result = cq_rag_pipeline.run(
+            {
+                "text_embedder": {"text": design},  # must be string
+                "retriever": {"top_k": top_k},
+            }
+        )
+        docs = result["retriever"]["documents"]
+
+        out = []
+        for d in docs:
+            out.append(ExampleCQFile(description=d.content, code=d.meta['cad_code']))
+
+        return out
 
 @dataclass(slots=True)
 class SolidworksExampleDeps(CadGenerationAgentDeps):

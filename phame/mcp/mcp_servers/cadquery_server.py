@@ -1,15 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from phame.agents.design_agents import build_cadquery_macro_agent
-import os
 
-api_key = os.environ["PORTKEY_API_KEY"]
-base_url = os.environ["PORTKEY_BASE_URL"]
-
-cadquery_agent = build_cadquery_macro_agent(
-    model_name="Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
-    api_key=api_key,
-    base_url=base_url,
-)
+cadquery_agent = build_cadquery_macro_agent(model_name="@opal/Qwen/Qwen3-30B-A3B-Thinking-2507-FP8")
 
 server = FastMCP("PHAME CADQuery MCP Server")
 

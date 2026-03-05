@@ -1,7 +1,33 @@
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+import os
+import re
 
-def _build_openai_model(*, model_name: str, api_key: str, base_url: str) -> OpenAIChatModel:
+def _extract_workpsace_str(model_name: str) -> str:
+    
+    WORKSPACE = re.search(r'@([^/]+)/', model_name).group(1)
+    
+    match WORKSPACE:
+        case 'opal':
+            api_env_var = "PORTKEY_OPAL_API_KEY"
+        case 'openai-enterprise-pilot':
+            api_env_var = "PORTKEY_OPENAI_ENTERPRISE_PILOT_API_KEY"
+        case 'openai-phame-pg':
+            api_env_var = "PORTKEY_OPENAI_PHAME_PG_API_KEY"
+        case _:
+            # No case matched — raise an error
+            raise ValueError(f"No matching workspace portkey environment variable for value: {WORKSPACE}")
+    
+    return api_env_var
+
+
+def _build_openai_model(model_name: str) -> OpenAIChatModel:
+    
+    api_env_var = _extract_workpsace_str(model_name=model_name)
+    api_key=os.environ[api_env_var]
+    base_url=os.environ["PORTKEY_BASE_URL"]
+
+    
     return OpenAIChatModel(
         model_name,
         provider=OpenAIProvider(base_url=base_url, api_key=api_key),

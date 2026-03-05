@@ -3,10 +3,10 @@ from typing import Callable, List
 
 from phame.llm.basemodels import DesignCode, DesignPlan, DesignCodeCritic, DesignPlanCritic
 from phame.llm.utils import _build_openai_model
-from phame.agents.utils import SolidworksExampleDeps, CadGenAgentDeps
+from phame.agents.utils import SolidworksExampleDeps, CadGenAgentDeps,CadQueryGenDeps
 
-def build_design_plan_agent(model_name: str, api_key: str, base_url: str) -> Agent[DesignPlan]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_design_plan_agent(model_name: str) -> Agent[DesignPlan]:
+    model = _build_openai_model(model_name=model_name)
     agent = Agent[DesignPlan](
         model,
         output_type=DesignPlan,
@@ -24,8 +24,8 @@ def build_design_plan_agent(model_name: str, api_key: str, base_url: str) -> Age
     )
     return agent
 
-def build_design_critic_agent(model_name: str, api_key: str, base_url: str) -> Agent[DesignPlanCritic]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_design_critic_agent(model_name: str) -> Agent[DesignPlanCritic]:
+    model = _build_openai_model(model_name=model_name)
     agent = Agent[DesignPlanCritic](
         model,
         output_type=DesignPlanCritic,
@@ -43,8 +43,8 @@ def build_design_critic_agent(model_name: str, api_key: str, base_url: str) -> A
     )
     return agent
 
-def build_solidworks_macro_agent(model_name: str, api_key: str, base_url: str) -> Agent[DesignCode]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_solidworks_macro_agent(model_name: str) -> Agent[DesignCode]:
+    model = _build_openai_model(model_name=model_name)
     agent = Agent[DesignCode](
         model,
         deps_type=SolidworksExampleDeps,
@@ -78,8 +78,8 @@ def build_solidworks_macro_agent(model_name: str, api_key: str, base_url: str) -
     
     return agent
 
-def build_solidworks_macro_critic_agent(model_name: str, api_key: str, base_url: str) -> Agent[DesignCodeCritic]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_solidworks_macro_critic_agent(model_name: str) -> Agent[DesignCodeCritic]:
+    model = _build_openai_model(model_name=model_name)
     agent = Agent[DesignCodeCritic](
         model,
         output_type=DesignCodeCritic,
@@ -99,31 +99,69 @@ def build_solidworks_macro_critic_agent(model_name: str, api_key: str, base_url:
     )
     return agent
 
-def build_cadquery_macro_agent(model_name: str, api_key: str, base_url: str) -> Agent[DesignCode]:
-    model = _build_openai_model(model_name=model_name, api_key=api_key, base_url=base_url)
+def build_cadquery_macro_agent(model_name: str) -> Agent[DesignCode]:
+    model = _build_openai_model(model_name=model_name)
     agent = Agent[DesignCode](
         model,
-        deps_type= CadGenAgentDeps,
+        deps_type= CadQueryGenDeps,
         output_type=DesignCode,
         system_prompt=(
             "You are a senior mechanical engineer producing CADQuery code.\n"
             "Requirements:\n"
             "- Prefer simple, robust geometry.\n"
             "- Keep rationale brief (<=3 bullets). No step-by-step reasoning.\n"
-            "- Include holes for fasteners if needed."
-            "- Code must include a line for exporting the model to an stl file."
+            "- You MUST call for examples from `get_example_macros`. Use the provided description appended with some abstract description as the input.\n"
+            "- Include holes for fasteners if needed.\n"
+            "- Code must include line for visualization. from cadquery.vis import show ... show(part_var, alpha=0.5)\n"
+            "- Code must include a line for exporting the model to an step file to './part_replace_me.step'. This can be done by using the `export` member function of the part.\n"
             "- Output must be a valid JSON"
         ),
     )
     
-    # @agent.tool
-    # def get_example_macros(ctx: RunContext[MacroExampleDeps]) -> str:
-    #     # You can return a combined blob, or you could return structured list.
-    #     print(" Getting example macros...\n")
-    #     examples = ctx.deps.load_examples_text()
-    #     # print(examples)
-    #     return examples
+    @agent.tool
+    def get_example_macros(ctx: RunContext[CadQueryGenDeps], designs: str, top_k: int=3) -> str:
+        # You can return a combined blob, or you could return structured list.
+        print(" Getting example macros...\n")
+        examples = ctx.deps.load_examples(designs, top_k)
+
+        out = ""
+        for example in examples:
+            out += example.description + "\n" + example.code + "\n"
+
+        return out
     
+    return agent
+
+
+def build_cadquery_fixing_agent(model_name: str) -> Agent[DesignCode]:
+    model = _build_openai_model(model_name=model_name)
+    agent = Agent[DesignCode](
+        model,
+        deps_type=CadQueryGenDeps,
+        output_type=DesignCode,
+        system_prompt=(
+            "You are a senior mechanical engineer correcting errors in a CADQuery code.\n"
+            "Requirements:\n"
+            "- Given a set of issues, you must address these one-by-one\n"
+            "- Consider how changes you make can propagate and cause other issues and resolve those issues.\n"
+            "- You MUST call for examples from `get_example_macros`. Use the provided description appended with some abstract description as the input.\n"
+            "- Code must include a line for exporting the model to an step file to './part_replace_me.step'.\n"
+            "- Output must be a valid JSON"
+        ),
+    )
+
+    @agent.tool
+    def get_example_macros(ctx: RunContext[CadQueryGenDeps], designs: str, top_k: int = 3) -> str:
+        # You can return a combined blob, or you could return structured list.
+        print(" Getting example macros...\n")
+        examples = ctx.deps.load_examples(designs, top_k)
+
+        out = ""
+        for example in examples:
+            out += example.description + "\n" + example.code + "\n"
+
+        return out
+
     return agent
 
 
